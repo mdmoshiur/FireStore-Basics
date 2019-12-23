@@ -14,12 +14,15 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.DocumentReference;
-import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.EventListener;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.FirebaseFirestoreException;
+import com.google.firebase.firestore.Query;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
+import com.google.firebase.firestore.QuerySnapshot;
 import com.google.firebase.firestore.SetOptions;
 
 import java.util.HashMap;
@@ -28,14 +31,16 @@ import java.util.Map;
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "FireStore";
-    private static final String name_key = "Name";
-    private static final String roll_key = "Roll";
-    private static final String cgpa_key = "Cgpa";
+    private static final String name_key = "name";
+    private static final String roll_key = "roll";
+    private static final String cgpa_key = "cgpa";
     // Access a Cloud Firestore instance from your Activity
     FirebaseFirestore db = FirebaseFirestore.getInstance();
     private EditText name, roll, cgpa;
     private TextView text;
     private Button button;
+
+    private CollectionReference StudentRef = db.collection("Students");
     private DocumentReference studentRef = db.collection("Students").document("student");
     //private DocumentReference studentRef = db.document("Students/student");
 
@@ -55,6 +60,7 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View v) {
                 Toast.makeText(MainActivity.this, "sending", Toast.LENGTH_SHORT).show();
                 addData();
+                //getData();
             }
         });
 
@@ -65,54 +71,50 @@ public class MainActivity extends AppCompatActivity {
         String Roll = roll.getText().toString();
         String Cgpa = cgpa.getText().toString();
 
+        if (Roll == null)
+            Roll = "0";
+        if (Cgpa == null)
+            Cgpa = "0.00";
+
+        int ROLL = Integer.parseInt(Roll);
+        double CGPA = Double.parseDouble(Cgpa);
         /*
         Map<String, Object> student = new HashMap<>();
         student.put(name_key, Name);
         student.put(roll_key, Roll);
         student.put(cgpa_key, Cgpa);
         */
-        Student student = new Student(Name, Roll, Cgpa);
-        studentRef.set(student)
-                .addOnSuccessListener(new OnSuccessListener<Void>() {
-                    @Override
-                    public void onSuccess(Void aVoid) {
-                        Toast.makeText(MainActivity.this, "added to database", Toast.LENGTH_SHORT).show();
-                    }
-                })
-                .addOnFailureListener(new OnFailureListener() {
-                    @Override
-                    public void onFailure(@NonNull Exception e) {
-                        Log.d(TAG, "onFailure: " + e);
-                    }
-                });
-
+        Student student = new Student(Name, ROLL, CGPA);
+        StudentRef.add(student);
     }
 
     private void getData() {
-        studentRef.get()
-                .addOnSuccessListener(new OnSuccessListener<DocumentSnapshot>() {
+        StudentRef.orderBy(cgpa_key, Query.Direction.DESCENDING)
+                .orderBy(roll_key)
+                .get()
+                .addOnSuccessListener(new OnSuccessListener<QuerySnapshot>() {
                     @Override
-                    public void onSuccess(DocumentSnapshot documentSnapshot) {
-                        if (documentSnapshot.exists()) {
-                            /*
-                            String name = documentSnapshot.getString(name_key);
-                            String roll = documentSnapshot.getString(roll_key);
-                            String cgpa = documentSnapshot.getString(cgpa_key);
-                            */
+                    public void onSuccess(QuerySnapshot queryDocumentSnapshots) {
+                        String data = "";
+
+                        for (QueryDocumentSnapshot documentSnapshot : queryDocumentSnapshots) {
                             Student student = documentSnapshot.toObject(Student.class);
+                            student.setDocumentId(documentSnapshot.getId());
 
+                            String documentId = student.getDocumentId();
                             String name = student.getName();
-                            String roll = student.getRoll();
-                            String cgpa = student.getCgpa();
+                            int roll = student.getRoll();
+                            double cgpa = student.getCgpa();
 
-                            text.setText(name + "\n" + roll + "\n" + cgpa);
+                            data += "ID: " + documentId + "\nName: " + name + "\nRoll: " + roll + "\nCGPA: " + cgpa + "\n\n";
+                            text.setText(data);
                         }
                     }
                 })
                 .addOnFailureListener(new OnFailureListener() {
                     @Override
                     public void onFailure(@NonNull Exception e) {
-                        Log.d(TAG, "onFailure: " + e.toString());
+                        Log.d(TAG, "onFailure " + e);
                     }
                 });
     }
@@ -141,35 +143,32 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
-        studentRef.addSnapshotListener(this, new EventListener<DocumentSnapshot>() {
+        StudentRef.orderBy(cgpa_key, Query.Direction.DESCENDING)
+                .orderBy(roll_key)
+                .orderBy(name_key)
+                .addSnapshotListener(this, new EventListener<QuerySnapshot>() {
             @Override
-            public void onEvent(@Nullable DocumentSnapshot documentSnapshot, @Nullable FirebaseFirestoreException e) {
+            public void onEvent(@Nullable QuerySnapshot queryDocumentSnapshots, @Nullable FirebaseFirestoreException e) {
                 if (e != null) {
-                    Toast.makeText(MainActivity.this, "Error on loading", Toast.LENGTH_SHORT).show();
                     return;
                 }
-                //no problem retrieve data
-                studentRef.get()
-                        .addOnSuccessListener(new OnSuccessListener<DocumentSnapshot>() {
-                            @Override
-                            public void onSuccess(DocumentSnapshot documentSnapshot) {
-                                if (documentSnapshot.exists()) {
-                                    /*
-                                    String name = documentSnapshot.getString(name_key);
-                                    String roll = documentSnapshot.getString(roll_key);
-                                    String cgpa = documentSnapshot.getString(cgpa_key);
-                                    */
-                                    Student student = documentSnapshot.toObject(Student.class);
+                String data = "";
 
-                                    String name = student.getName();
-                                    String roll = student.getRoll();
-                                    String cgpa = student.getCgpa();
+                for (QueryDocumentSnapshot documentSnapshot : queryDocumentSnapshots) {
+                    Student student = documentSnapshot.toObject(Student.class);
+                    student.setDocumentId(documentSnapshot.getId());
 
-                                    text.setText(name + "\n" + roll + "\n" + cgpa);
-                                }
-                            }
-                        });
+                    String documentId = student.getDocumentId();
+                    String name = student.getName();
+                    int roll = student.getRoll();
+                    double cgpa = student.getCgpa();
+
+                    data += "ID: " + documentId + "\nName: " + name + "\nRoll: " + roll + "\nCGPA: " + cgpa + "\n\n";
+                    text.setText(data);
+                }
             }
         });
+
     }
+
 }
