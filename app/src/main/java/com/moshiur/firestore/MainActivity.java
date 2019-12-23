@@ -1,19 +1,18 @@
 package com.moshiur.firestore;
 
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.gms.tasks.Task;
+import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.EventListener;
@@ -26,6 +25,7 @@ import com.google.firebase.firestore.QuerySnapshot;
 import com.google.firebase.firestore.SetOptions;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
@@ -59,8 +59,8 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 Toast.makeText(MainActivity.this, "sending", Toast.LENGTH_SHORT).show();
-                addData();
-                //getData();
+                //addData();
+                getData();
             }
         });
 
@@ -89,34 +89,39 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void getData() {
-        StudentRef.orderBy(cgpa_key, Query.Direction.DESCENDING)
-                .orderBy(roll_key)
-                .get()
-                .addOnSuccessListener(new OnSuccessListener<QuerySnapshot>() {
-                    @Override
-                    public void onSuccess(QuerySnapshot queryDocumentSnapshots) {
-                        String data = "";
+        //for multiple query
+        Task task1 = StudentRef.whereGreaterThanOrEqualTo(cgpa_key, 3.0)
+                .get();
 
-                        for (QueryDocumentSnapshot documentSnapshot : queryDocumentSnapshots) {
-                            Student student = documentSnapshot.toObject(Student.class);
-                            student.setDocumentId(documentSnapshot.getId());
+        Task task2 = StudentRef.whereLessThanOrEqualTo(cgpa_key, 3.50)
+                .orderBy(cgpa_key)
+                .get();
 
-                            String documentId = student.getDocumentId();
-                            String name = student.getName();
-                            int roll = student.getRoll();
-                            double cgpa = student.getCgpa();
 
-                            data += "ID: " + documentId + "\nName: " + name + "\nRoll: " + roll + "\nCGPA: " + cgpa + "\n\n";
-                            text.setText(data);
-                        }
+        Task<List<QuerySnapshot>> allTasks = Tasks.whenAllSuccess(task1, task2);
+        allTasks.addOnSuccessListener(new OnSuccessListener<List<QuerySnapshot>>() {
+            @Override
+            public void onSuccess(List<QuerySnapshot> querySnapshots) {
+                String data = "";
+                for (QuerySnapshot queryDocumentSnapshots : querySnapshots) {
+                    for (QueryDocumentSnapshot documentSnapshot : queryDocumentSnapshots) {
+                        Student student = documentSnapshot.toObject(Student.class);
+                        student.setDocumentId(documentSnapshot.getId());
+
+                        String documentId = student.getDocumentId();
+                        String name = student.getName();
+                        int roll = student.getRoll();
+                        double cgpa = student.getCgpa();
+
+                        data += "ID: " + documentId + "\nName: " + name + "\nRoll: " + roll + "\nCGPA: " + cgpa + "\n\n";
+
                     }
-                })
-                .addOnFailureListener(new OnFailureListener() {
-                    @Override
-                    public void onFailure(@NonNull Exception e) {
-                        Log.d(TAG, "onFailure " + e);
-                    }
-                });
+                }
+                text.setText(data);
+                //Log.d(TAG, "onSuccess: data:"+data);
+            }
+        });
+
     }
 
     //update document
@@ -164,8 +169,9 @@ public class MainActivity extends AppCompatActivity {
                     double cgpa = student.getCgpa();
 
                     data += "ID: " + documentId + "\nName: " + name + "\nRoll: " + roll + "\nCGPA: " + cgpa + "\n\n";
-                    text.setText(data);
+
                 }
+                text.setText(data);
             }
         });
 
