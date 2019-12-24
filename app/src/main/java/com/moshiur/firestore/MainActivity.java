@@ -7,25 +7,20 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.gms.tasks.OnSuccessListener;
-import com.google.android.gms.tasks.Task;
-import com.google.android.gms.tasks.Tasks;
 import com.google.firebase.firestore.CollectionReference;
 import com.google.firebase.firestore.DocumentReference;
-import com.google.firebase.firestore.EventListener;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.FirebaseFirestoreException;
 import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.QuerySnapshot;
 import com.google.firebase.firestore.SetOptions;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
@@ -38,11 +33,13 @@ public class MainActivity extends AppCompatActivity {
     FirebaseFirestore db = FirebaseFirestore.getInstance();
     private EditText name, roll, cgpa;
     private TextView text;
-    private Button button;
+    private Button button, button2;
 
     private CollectionReference StudentRef = db.collection("Students");
     private DocumentReference studentRef = db.collection("Students").document("student");
     //private DocumentReference studentRef = db.document("Students/student");
+
+    private DocumentSnapshot lastResult;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -55,11 +52,18 @@ public class MainActivity extends AppCompatActivity {
         text = findViewById(R.id.textview);
 
         button = findViewById(R.id.button);
+        button2 = findViewById(R.id.button2);
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 Toast.makeText(MainActivity.this, "sending", Toast.LENGTH_SHORT).show();
-                //addData();
+                addData();
+            }
+        });
+
+        button2.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
                 getData();
             }
         });
@@ -88,6 +92,44 @@ public class MainActivity extends AppCompatActivity {
         StudentRef.add(student);
     }
 
+    private void getData() {
+        Query query;
+        if (lastResult == null) {
+            query = StudentRef.orderBy(roll_key)
+                    .limit(3);
+        } else {
+            query = StudentRef.orderBy(roll_key)
+                    .startAfter(lastResult)
+                    .limit(3);
+        }
+        query.get()
+                .addOnSuccessListener(new OnSuccessListener<QuerySnapshot>() {
+                    @Override
+                    public void onSuccess(QuerySnapshot queryDocumentSnapshots) {
+                        String data = "";
+                        for (QueryDocumentSnapshot documentSnapshot : queryDocumentSnapshots) {
+                            Student student = documentSnapshot.toObject(Student.class);
+                            student.setDocumentId(documentSnapshot.getId());
+                            String documentId = student.getDocumentId();
+                            String name = student.getName();
+                            int roll = student.getRoll();
+                            double cgpa = student.getCgpa();
+
+                            data += "ID: " + documentId + "\nName: " + name + "\nRoll: " + roll + "\nCGPA: " + cgpa + "\n\n";
+                        }
+                        if (queryDocumentSnapshots.size() > 0) {
+                            data += "----------\n\n";
+                            text.append(data);
+
+                            lastResult = queryDocumentSnapshots.getDocuments().get(queryDocumentSnapshots.size() - 1);
+                        }
+
+                    }
+                });
+
+    }
+
+    /*
     private void getData() {
         //for multiple query
         Task task1 = StudentRef.whereGreaterThanOrEqualTo(cgpa_key, 3.0)
@@ -124,6 +166,8 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+     */
+
     //update document
     private void updateData() {
         String new_cgpa = cgpa.getText().toString();
@@ -144,6 +188,7 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
+    /*
     //load realtime
     @Override
     protected void onStart() {
@@ -176,5 +221,7 @@ public class MainActivity extends AppCompatActivity {
         });
 
     }
+
+     */
 
 }

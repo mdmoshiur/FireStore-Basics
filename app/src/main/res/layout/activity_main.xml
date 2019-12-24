@@ -36,11 +36,20 @@
         android:background="#4CAF50"
         android:text="Add" />
 
+    <Button
+        android:id="@+id/button2"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/button"
+        android:layout_marginTop="16dp"
+        android:background="#4CAF50"
+        android:text="load" />
+
     <androidx.core.widget.NestedScrollView
         android:id="@+id/scrollview"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@+id/button">
+        android:layout_below="@+id/button2">
 
         <TextView
             android:id="@+id/textview"
